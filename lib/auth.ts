@@ -31,5 +31,5 @@ export async function getUserRole(user_id: string) {
     .eq("user_id", user_id)
     .single();
   if (error) return null;
-  return data?.roles?.name || null;
+  return data?.roles[0]?.name || null;
 }

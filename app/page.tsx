@@ -4,11 +4,23 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Job } from '@/lib/supabaseClient';
 import JobCard from './components/JobCard';
+import { User, Subscription } from '@supabase/supabase-js';
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (search.trim()) {
+      window.location.href = `/jobs?search=${encodeURIComponent(search)}`;
+    }
+  };
+
+  // Tambahkan state user
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchFeaturedJobs = async () => {
@@ -24,20 +36,8 @@ export default function Home() {
     };
 
     fetchFeaturedJobs();
-  }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (search.trim()) {
-      window.location.href = `/jobs?search=${encodeURIComponent(search)}`;
-    }
-  };
-
-  // Tambahkan state user
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
-
-  useEffect(() => {
+    let subscription: Subscription;
     const getSessionAndRole = async () => {
       const { supabase } = await import("@/lib/supabaseClient");
       const { getUserRole } = await import("@/lib/auth");
@@ -49,12 +49,8 @@ export default function Home() {
       } else {
         setRole(null);
       }
-    };
-    getSessionAndRole();
-    // Listen for auth changes
-    import("@/lib/supabaseClient").then(async mod => {
-      const { getUserRole } = await import("@/lib/auth");
-      const { data: listener } = mod.supabase.auth.onAuthStateChange(async (_event, session) => {
+
+      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
         setUser(session?.user || null);
         if (session?.user) {
           const userRole = await getUserRole(session.user.id);
@@ -63,10 +59,13 @@ export default function Home() {
           setRole(null);
         }
       });
-      return () => {
-        listener?.unsubscribe();
-      };
-    });
+      subscription = data.subscription;
+    };
+    getSessionAndRole();
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   return (
